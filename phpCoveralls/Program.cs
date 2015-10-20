@@ -17,12 +17,12 @@ namespace phpCoveralls
 
         private static void Main(string[] args)
         {
-            if (args.Length < 2 || args.Length > 3)
+            if (args.Length < 2 || args.Length > 4)
             {
                 DrawHeader();
                 return;
             }
-            
+
             var coverallsModelcs = new CoverallsModelcs();
             coverallsModelcs.RepoToken = Environment.GetEnvironmentVariable(COVERALLS_REPO_TOKEN);
 
@@ -30,7 +30,7 @@ namespace phpCoveralls
             {
                 Log.ErrorWriteLine($"Environment variable '{COVERALLS_REPO_TOKEN}' is empty");
             }
-            
+
             gitRootFolder = Path.GetFullPath(args[0]);
             if (!Directory.Exists(gitRootFolder))
             {
@@ -43,19 +43,23 @@ namespace phpCoveralls
                 Log.ErrorWriteLine($"File {xmlPath} not found.");
             }
 
-            if (args.Length==3 && !string.IsNullOrEmpty(args[2]))
+            if (args.Length >= 3 && !string.IsNullOrEmpty(args[2]))
             {
                 coverallsModelcs.ServiceName = args[2];
             }
-            var gitInfo=new GitInfo(gitRootFolder);
+            var gitInfo = new GitInfo(gitRootFolder);
             coverallsModelcs.Git.Head = gitInfo.GetLastCommitInfo();
-            coverallsModelcs.Git.Branch = gitInfo.GetCurrentBranchName();
+
+            coverallsModelcs.Git.Branch = args.Length >= 4 && !string.IsNullOrEmpty(args[3])
+                ? args[3]
+                : gitInfo.GetCurrentBranchName();
+
             coverallsModelcs.ServiceBranch = coverallsModelcs.Git.Branch;
-            
+
             var xdoc = XDocument.Load(xmlPath);
             ConvertCloverXMLtoJSON(xdoc, coverallsModelcs);
             var bytes = coverallsModelcs.ToJson();
-            HttpUploadFile("https://coveralls.io/api/v1/jobs",  bytes);
+            HttpUploadFile("https://coveralls.io/api/v1/jobs", bytes);
         }
 
         private static void DrawHeader()
@@ -66,14 +70,14 @@ namespace phpCoveralls
             lineFunct();
             Console.WriteLine("using:");
             Console.WriteLine($"$env:{COVERALLS_REPO_TOKEN}='your_key'");
-            Console.WriteLine("{0} pathToGitRootFolder pathToCloverXml [CIName]", exeName);
+            Console.WriteLine("{0} pathToGitRootFolder pathToCloverXml [CIName] [branchName]", exeName);
             lineFunct();
             Console.WriteLine($"e.g:");
+            Console.WriteLine("{0} .. bin/clover.xml appveyor master", exeName);
             Console.WriteLine("{0} .. bin/clover.xml appveyor", exeName);
             Console.WriteLine("{0} .. bin/clover.xml", exeName);
             Console.WriteLine("{0} ./ clover.xml", exeName);
             Console.WriteLine("{0} src bin/logs/clover.xml", exeName);
-            return;
         }
 
         private static void ConvertCloverXMLtoJSON(XDocument xdoc, CoverallsModelcs coverallsModelcs)
